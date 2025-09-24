@@ -1,8 +1,8 @@
 ﻿using RinhaBackend.Api.Exceptions;
 using RinhaBackend.Api.Interface;
 using RinhaBackend.Api.MediatR;
-using RinhaBackend.Api.Request;
-using RinhaBackend.Api.Response;
+using RinhaBackend.Api.MediatR.Request;
+using RinhaBackend.Api.MediatR.Response;
 using RinhaBackend.Api.Service.Api;
 
 namespace RinhaBackend.Api.Service;

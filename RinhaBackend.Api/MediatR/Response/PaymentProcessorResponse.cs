@@ -1,3 +1,3 @@
-﻿namespace RinhaBackend.Api.Response;
+﻿namespace RinhaBackend.Api.MediatR.Response;
 
 public record PaymentProcessorResponse(string Message);

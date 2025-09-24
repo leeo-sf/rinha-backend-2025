@@ -1,7 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RinhaBackend.Api.Controllers.Base;
-using RinhaBackend.Api.Request;
+using RinhaBackend.Api.MediatR.Request;
 using System.ComponentModel.DataAnnotations;
 
 namespace RinhaBackend.Api.Controllers;
