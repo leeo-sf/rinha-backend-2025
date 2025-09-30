@@ -1,4 +1,5 @@
-﻿using RinhaBackend.Api.Data.Entity;
+﻿using Microsoft.EntityFrameworkCore;
+using RinhaBackend.Api.Data.Entity;
 using RinhaBackend.Api.Interface;
 
 namespace RinhaBackend.Api.Data.Repository;
@@ -14,6 +15,12 @@ public class PaymentsRepository
     public async Task CreatePaymentAsync(Payment payment, CancellationToken cancellationToken)
     {
         await _appDbContext.Payments.AddAsync(payment, cancellationToken);
+        await _appDbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdatePaymentToProcessed(Payment payment, CancellationToken cancellationToken)
+    {
+        _appDbContext.Payments.Update(payment);
         await _appDbContext.SaveChangesAsync(cancellationToken);
     }
 }

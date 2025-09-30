@@ -7,4 +7,5 @@ namespace RinhaBackend.Api.Interface;
 public interface IPaymentProcessorFallbackApiService
 {
     Task<Result<PaymentProcessorResponse>> PaymentProcessorAsync(PaymentProcessorRequest request);
+    Task<Result<PaymentProcessorHealthResponse>> PaymentProcessorHealthCheck();
 }

@@ -9,4 +9,7 @@ public interface IPaymentProcessorDefaultApi
     [Post("/payments")]
     Task<ApiResponse<PaymentProcessorResponse>> PaymentProcessorAsync(
         [Body] PaymentProcessorRequest request);
+
+    [Get("/payments/service-health")]
+    Task<ApiResponse<PaymentProcessorHealthResponse>> PaymentProcessorHealthCheck();
 }

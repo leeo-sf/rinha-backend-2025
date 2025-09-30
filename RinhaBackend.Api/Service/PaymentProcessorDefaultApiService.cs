@@ -22,4 +22,12 @@ public class PaymentProcessorDefaultApiService
             ? Result<PaymentProcessorResponse>.Fail(new PaymentProcessorException($"Payment processor default error! {response.Error.Message}"))
             : Result<PaymentProcessorResponse>.Ok(response.Content);
     }
+
+    public async Task<Result<PaymentProcessorHealthResponse>> PaymentProcessorHealthCheck()
+    {
+        var response = await _paymentProcessorDefaultApi.PaymentProcessorHealthCheck();
+        return !response.IsSuccessful
+            ? Result<PaymentProcessorHealthResponse>.Fail(new PaymentProcessorException($"Payment health default error! {response.Error.Message}"))
+            : Result<PaymentProcessorHealthResponse>.Ok(response.Content);
+    }
 }

@@ -17,13 +17,13 @@ public class RabbitMQService : IRabbitMQService
             Password = credentials.Password,
             VirtualHost = credentials.VirtualHost,
         };
-        using var connection = factory.CreateConnection();
-        using var channel = connection.CreateModel();
-        channel.QueueDeclare(queue: queueName, durable: false, exclusive: false, autoDelete: false, arguments: null);
+        using var connection = await factory.CreateConnectionAsync();
+        using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
 
         var messageJson = JsonConvert.SerializeObject(data);
         var body = Encoding.UTF8.GetBytes(messageJson);
 
-        await Task.Run(() => channel.BasicPublish(exchange: "", routingKey: queueName, basicProperties: null, body: body));
+        await Task.Run(() => channel.BasicPublishAsync(string.Empty, queueName, false, new BasicProperties(), body: body));
     }
 }

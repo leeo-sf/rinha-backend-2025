@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RinhaBackend.Api.Data;
@@ -11,9 +12,11 @@ using RinhaBackend.Api.Data;
 namespace RinhaBackend.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250925002723_ColumnIsProcessed")]
+    partial class ColumnIsProcessed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -40,12 +43,7 @@ namespace RinhaBackend.Api.Migrations
                         .HasColumnName("isProcessed")
                         .HasComment("Pagamento processado");
 
-                    b.Property<int?>("ProcessedBy")
-                        .HasColumnType("integer")
-                        .HasColumnName("processedBy")
-                        .HasComment("Onde o pagamento foi processado");
-
-                    b.Property<DateTime?>("RequestedAt")
+                    b.Property<DateTime>("RequestedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("requestedAt")
                         .HasComment("Data e hora da solicitação");

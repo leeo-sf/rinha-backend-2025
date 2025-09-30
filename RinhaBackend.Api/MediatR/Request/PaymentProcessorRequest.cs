@@ -1,3 +1,3 @@
 ﻿namespace RinhaBackend.Api.MediatR.Request;
 
-public record PaymentProcessorRequest(Guid correlationId, decimal Amount, DateTime RequestedAt);
+public record PaymentProcessorRequest(Guid CorrelationId, decimal Amount, DateTime RequestedAt);

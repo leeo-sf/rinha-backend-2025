@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using RinhaBackend.Api.Config;
 using RinhaBackend.Api.Data.Entity;
+using RinhaBackend.Api.Data.EntityTypeConfiguration;
 
 namespace RinhaBackend.Api.Data;
 

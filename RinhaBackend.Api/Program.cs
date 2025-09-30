@@ -17,6 +17,8 @@ builder.Services.ConfigureServices(configuration);
 
 builder.Services.AddMediatorConfiguration();
 
+builder.Services.ConfigureWorkerServices();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

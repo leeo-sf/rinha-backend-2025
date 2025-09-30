@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using RinhaBackend.Api.Data.Entity;
 
-namespace RinhaBackend.Api.Config;
+namespace RinhaBackend.Api.Data.EntityTypeConfiguration;
 
 public class PaymentEntityTypeConfiguration
     : IEntityTypeConfiguration<Payment>
@@ -13,6 +13,8 @@ public class PaymentEntityTypeConfiguration
         builder.HasKey(e => e.CorrelationId);
         builder.Property(e => e.CorrelationId).HasColumnName("correlationId").IsRequired().HasComment("Identificador");
         builder.Property(e => e.Amount).HasColumnName("amount").IsRequired().HasComment("Valor do pagamento");
-        builder.Property(e => e.RequestedAt).HasColumnName("requestedAt").HasComment("Data e hora da solicitação");
+        builder.Property(e => e.RequestedAt).HasColumnName("requestedAt").IsRequired(false).HasComment("Data e hora da solicitação");
+        builder.Property(e => e.IsProcessed).HasColumnName("isProcessed").IsRequired().HasComment("Pagamento processado");
+        builder.Property(e => e.ProcessedBy).HasColumnName("processedBy").IsRequired(false).HasComment("Onde o pagamento foi processado");
     }
 }

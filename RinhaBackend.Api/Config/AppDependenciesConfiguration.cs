@@ -6,6 +6,7 @@ using RinhaBackend.Api.Interface;
 using RinhaBackend.Api.MediatR.Handler;
 using RinhaBackend.Api.Service;
 using RinhaBackend.Api.Service.Api;
+using RinhaBackend.Api.Worker;
 
 namespace RinhaBackend.Api.Config;
 
@@ -38,7 +39,17 @@ public static class AppDependenciesConfiguration
         services.AddSingleton<IPaymentProcessorDefaultApiService, PaymentProcessorDefaultApiService>();
         services.AddSingleton<IPaymentProcessorFallbackApiService, PaymentProcessorFallbackApiService>();
         services.AddSingleton<IRabbitMQService, RabbitMQService>();
+        services.AddSingleton<IRabbitMQConnection, RabbitMQConnection>();
         services.AddScoped<IPaymentsRepository, PaymentsRepository>();
+        services.AddMemoryCache();
+    }
+
+    public static void ConfigureWorkerServices(this IServiceCollection services)
+    {
+        services.AddHostedService<ProcessPaymentWorkerService>();
+        services.AddHostedService<PaymentProcessedWorkerService>();
+        services.AddHostedService<PaymentDefaultHealthCheckWorkerService>();
+        services.AddHostedService<PaymentFallbackHealthCheckWorkerService>();
     }
 
     private static void ConfigureRefitClient<T>(this IServiceCollection services, string host)
