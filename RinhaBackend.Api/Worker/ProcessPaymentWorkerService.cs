@@ -4,7 +4,6 @@ using RabbitMQ.Client.Events;
 using RinhaBackend.Api.Config;
 using RinhaBackend.Api.Contract;
 using RinhaBackend.Api.Contract.Enum;
-using RinhaBackend.Api.Data.Entity;
 using RinhaBackend.Api.Interface;
 using System.Text;
 using System.Text.Json;

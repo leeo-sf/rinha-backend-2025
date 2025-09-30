@@ -6,7 +6,6 @@ using RinhaBackend.Api.Data.Entity;
 using RinhaBackend.Api.Interface;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace RinhaBackend.Api.Worker;
 
