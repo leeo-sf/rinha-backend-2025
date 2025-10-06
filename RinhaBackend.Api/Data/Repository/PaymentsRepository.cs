@@ -12,10 +12,10 @@ public class PaymentsRepository
     public PaymentsRepository(AppDbContext appDbContext)
         => _appDbContext = appDbContext;
 
-    public async Task<List<Payment>> PaymentsProcessedAsync(DateTime from, DateTime to, CancellationToken cancellationToken)
+    public async Task<List<Payment>> PaymentsProcessedAsync(DateTime? from, DateTime? to, CancellationToken cancellationToken)
         => await _appDbContext.Payments
             .AsNoTracking()
-            .Where(p => p.RequestedAt >= from && p.RequestedAt <= to
+            .Where(p => (from.HasValue && to.HasValue ? p.RequestedAt >= from && p.RequestedAt <= to : true)
             && p.IsProcessed)
             .ToListAsync(cancellationToken);
 

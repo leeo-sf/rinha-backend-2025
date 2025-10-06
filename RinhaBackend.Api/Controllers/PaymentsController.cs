@@ -20,6 +20,6 @@ public class PaymentsController
         => await SendCommand(request);
 
     [HttpGet("payments-summary")]
-    public async Task<ActionResult<PaymentsProcessedAtIntervalsContract>> ProcessingSummaryAsync([FromQuery] DateTime from, [FromQuery] DateTime to)
+    public async Task<ActionResult<PaymentsProcessedAtIntervalsContract>> ProcessingSummaryAsync([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         => await SendCommand(new SummaryOfProcessedPaymentsRequest(from, to));
 }
