@@ -1,14 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Refit;
 using RinhaBackend.Api.Application.Config;
+using RinhaBackend.Api.Application.Factory;
 using RinhaBackend.Api.Application.Interface;
 using RinhaBackend.Api.Application.Service;
 using RinhaBackend.Api.Application.Service.Api;
 using RinhaBackend.Api.Data;
 using RinhaBackend.Api.Data.Repository;
-using RinhaBackend.Api.Domain.Handler;
 using RinhaBackend.Api.Domain.Interface;
-using RinhaBackend.Api.Worker;
+using RinhaBackend.Api.Presentation.Endpoints;
+using RinhaBackend.Api.Presentation.Worker;
 
 namespace RinhaBackend.Api.Infra;
 
@@ -18,12 +19,6 @@ public static class AppDependenciesConfiguration
         => services.AddDbContext<AppDbContext>(opt =>
         {
             opt.UseNpgsql(configuration["ConnectionStrings:Database"]);
-        });
-
-    public static void AddMediatorConfiguration(this IServiceCollection services)
-        => services.AddMediatR(opt =>
-        {
-            opt.RegisterServicesFromAssemblies(typeof(PaymentsHandler).Assembly);
         });
 
     public static void ConfigureAppDependencies(
@@ -38,8 +33,9 @@ public static class AppDependenciesConfiguration
     {
         services.ConfigureServiceCredentials<AppConfiguration>("Service", configuration);
 
-        services.AddSingleton<IPaymentProcessorDefaultApiService, PaymentProcessorDefaultApiService>();
-        services.AddSingleton<IPaymentProcessorFallbackApiService, PaymentProcessorFallbackApiService>();
+        services.AddSingleton<IPaymentProcessor, DefaultPaymentProcessor>();
+        services.AddSingleton<IPaymentProcessor, FallbackPaymentProcessor>();
+        services.AddSingleton<PaymentProcessorFactory>();
         services.AddSingleton<IRabbitMQService, RabbitMQService>();
         services.AddSingleton<IRabbitMQConnection, RabbitMQConnection>();
         services.AddScoped<IPaymentsRepository, PaymentsRepository>();
@@ -49,9 +45,13 @@ public static class AppDependenciesConfiguration
     public static void ConfigureWorkerServices(this IServiceCollection services)
     {
         services.AddHostedService<ProcessPaymentWorkerService>();
-        services.AddHostedService<PaymentProcessedWorkerService>();
-        services.AddHostedService<PaymentDefaultHealthCheckWorkerService>();
-        services.AddHostedService<PaymentFallbackHealthCheckWorkerService>();
+        services.AddHostedService<PaymentHealthCheckWorkerService>();
+    }
+
+    public static IEndpointRouteBuilder AddEndpoints(this IEndpointRouteBuilder app)
+    {
+        app.AddPaymentEndpoints();
+        return app;
     }
 
     private static void ConfigureRefitClient<T>(this IServiceCollection services, string host)
