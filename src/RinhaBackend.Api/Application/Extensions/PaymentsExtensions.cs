@@ -6,7 +6,7 @@ namespace RinhaBackend.Api.Application.Extensions;
 
 public static class PaymentsExtensions
 {
-    public static PaymentsProcessedAtIntervalsContract BuildSummary(this List<Payment> payments)
+    public static PaymentSummaryContract BuildSummary(this List<Payment> payments)
     {
         var paymentsProcessedByDefault = payments.Where(p => p.ProcessedBy == PaymentProcessorEnum.DEFAULT).ToList();
         var paymentsProcessedByFallback = payments.Where(p => p.ProcessedBy == PaymentProcessorEnum.FALLBACK).ToList();

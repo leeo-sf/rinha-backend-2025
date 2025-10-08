@@ -1,109 +1,64 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using RinhaBackend.Api.Application;
-using RinhaBackend.Api.Application.Config;
 using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Factory;
-using RinhaBackend.Api.Application.Interface;
-using RinhaBackend.Api.Application.Request;
 using RinhaBackend.Api.Application.Response;
 using RinhaBackend.Api.Domain.Entity;
 using RinhaBackend.Api.Domain.Enum;
 using RinhaBackend.Api.Domain.Interface;
-using System.Text;
-using System.Text.Json;
+using System.Threading.Channels;
 
 namespace RinhaBackend.Api.Presentation.Worker;
 
 public class ProcessPaymentWorkerService : BackgroundService
 {
+    private readonly Channel<PaymentContract> _channel;
     private readonly ILogger<ProcessPaymentWorkerService> _logger;
+    private readonly PaymentProcessorFactory _paymentProcessorFactory;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IMemoryCache _memoryCache;
     private const string CACHE_KEY_DEFAULT = "PaymentProcessorDefaultIsFailing";
     private const string CACHE_KEY_FALLBACK = "PaymentProcessorFallbackIsFailing";
-    private readonly AppConfiguration _appConfiguration;
-    private readonly IMemoryCache _memoryCache;
-    private readonly PaymentProcessorFactory _paymentProcessorFactory;
-    private readonly IRabbitMQConnection _rabbitMqConnection;
-    private IChannel? _channel;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private const int MAX_RETRIES = 3;
 
     public ProcessPaymentWorkerService(
+        Channel<PaymentContract> channel,
         ILogger<ProcessPaymentWorkerService> logger,
-        AppConfiguration appConfiguration,
-        IMemoryCache memoryCache,
         PaymentProcessorFactory paymentProcessorFactory,
-        IRabbitMQConnection rabbitMqConnection,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory,
+        IMemoryCache memoryCache)
     {
+        _channel = channel;
         _logger = logger;
-        _appConfiguration = appConfiguration;
-        _memoryCache = memoryCache;
         _paymentProcessorFactory = paymentProcessorFactory;
-        _rabbitMqConnection = rabbitMqConnection;
         _serviceScopeFactory = serviceScopeFactory;
+        _memoryCache = memoryCache;
     }
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _channel = await _rabbitMqConnection.CreateChannelAsync(stoppingToken);
-        await _channel.QueueDeclareAsync(queue: _appConfiguration.RabbitMQ.Queues.PaymentRequestedQueue,
-                             durable: true,
-                             exclusive: false,
-                             autoDelete: false,
-                             arguments: null);
-
-        var consumer = new AsyncEventingBasicConsumer(_channel);
-        consumer.ReceivedAsync += async (sender, eventArgs) =>
+        await foreach (var paymentContract in _channel.Reader.ReadAllAsync(stoppingToken))
         {
-            var content = Encoding.UTF8.GetString(eventArgs.Body.ToArray());
-            var message = JsonSerializer.Deserialize<PaymentContract>(content)
-                ?? throw new ApplicationException("Error deserialize message to process payment.");
-
             try
             {
-                _logger.LogInformation($"Starting payment processing {message.CorrelationId}");
-                await ProcessPaymentAsync(message);
-                await ((AsyncEventingBasicConsumer)sender).Channel.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
+                _logger.LogInformation($"Starting payment processing {paymentContract.CorrelationId}");
+                await ProcessPaymentAsync(paymentContract, stoppingToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error processing payment {message.CorrelationId}");
-                await ((AsyncEventingBasicConsumer)sender).Channel.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: true);
-            }
-        };
-        await _channel.BasicConsumeAsync(queue: _appConfiguration.RabbitMQ.Queues.PaymentRequestedQueue, autoAck: false, consumer: consumer);
-    }
-
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        if (_channel is not null)
-        {
-            await _channel.CloseAsync(cancellationToken);
-            await _channel.DisposeAsync();
-        }
-        await base.StopAsync(cancellationToken);
-    }
-
-    private async Task ProcessPaymentAsync(PaymentContract paymentContract)
-    {
-        var requestedAt = DateTime.UtcNow;
-        var payment = new Payment(paymentContract.CorrelationId, paymentContract.Amount, requestedAt, PaymentProcessorEnum.NONE);
-
-        if (_memoryCache.Get<bool>(CACHE_KEY_DEFAULT))
-        {
-            var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
-            if (responseFallback.IsSuccess)
-            {
-                await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
-                return;
+                _logger.LogError(ex, $"Error processing payment {paymentContract.CorrelationId}");
             }
         }
+    }
 
-        var responseDefault = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.DEFAULT);
-        if (!responseDefault.IsSuccess)
+    private async Task ProcessPaymentAsync(PaymentContract paymentContract, CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++)
         {
-            if (!_memoryCache.Get<bool>(CACHE_KEY_FALLBACK))
+            var requestedAt = DateTime.UtcNow;
+            var payment = new Payment(paymentContract.CorrelationId, paymentContract.Amount, requestedAt, PaymentProcessorEnum.NONE);
+
+            if (_memoryCache.Get<bool>(CACHE_KEY_DEFAULT))
             {
                 var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
                 if (responseFallback.IsSuccess)
@@ -112,18 +67,35 @@ public class ProcessPaymentWorkerService : BackgroundService
                     return;
                 }
             }
-        }
-        else
-        {
-            await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.DEFAULT });
-            return;
-        }
 
-        throw new ApplicationException("Unable to process payment on any service.");
+            var responseDefault = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.DEFAULT);
+            if (!responseDefault.IsSuccess)
+            {
+                if (!_memoryCache.Get<bool>(CACHE_KEY_FALLBACK))
+                {
+                    var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
+                    if (responseFallback.IsSuccess)
+                    {
+                        await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.DEFAULT });
+                return;
+            }
+
+            if (attempt == MAX_RETRIES)
+                throw new ApplicationException("Unable to process payment on any service.");
+
+            await Task.Delay(100 * attempt, cancellationToken);
+        }
     }
 
     private async Task<Result<PaymentProcessorResponse>> SendPaymentProcessing(
-        PaymentProcessorRequest request,
+        PaymentProcessorContract request,
         PaymentProcessorEnum paymentProcessorType)
     {
         var processor = _paymentProcessorFactory.CreateFactory(paymentProcessorType);

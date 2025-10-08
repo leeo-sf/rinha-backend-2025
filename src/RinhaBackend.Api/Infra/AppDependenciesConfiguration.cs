@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Refit;
-using RinhaBackend.Api.Application.Config;
+using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Factory;
 using RinhaBackend.Api.Application.Interface;
 using RinhaBackend.Api.Application.Service;
@@ -10,6 +10,7 @@ using RinhaBackend.Api.Data.Repository;
 using RinhaBackend.Api.Domain.Interface;
 using RinhaBackend.Api.Presentation.Endpoints;
 using RinhaBackend.Api.Presentation.Worker;
+using System.Threading.Channels;
 
 namespace RinhaBackend.Api.Infra;
 
@@ -31,13 +32,10 @@ public static class AppDependenciesConfiguration
 
     public static void ConfigureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        services.ConfigureServiceCredentials<AppConfiguration>("Service", configuration);
-
         services.AddSingleton<IPaymentProcessor, DefaultPaymentProcessor>();
         services.AddSingleton<IPaymentProcessor, FallbackPaymentProcessor>();
         services.AddSingleton<PaymentProcessorFactory>();
-        services.AddSingleton<IRabbitMQService, RabbitMQService>();
-        services.AddSingleton<IRabbitMQConnection, RabbitMQConnection>();
+        services.AddSingleton(Channel.CreateUnboundedPrioritized<PaymentContract>());
         services.AddScoped<IPaymentsRepository, PaymentsRepository>();
         services.AddMemoryCache();
     }
@@ -62,7 +60,4 @@ public static class AppDependenciesConfiguration
             {
                 httpClient.BaseAddress = new Uri(host);
             });
-
-    private static void ConfigureServiceCredentials<T>(this IServiceCollection services, string sectionName, IConfiguration configuration) where T : class
-        => services.AddSingleton(opt => configuration.GetSection(sectionName).Get<T>()!);
 }

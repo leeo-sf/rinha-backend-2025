@@ -1,6 +1,6 @@
-﻿using RinhaBackend.Api.Application.Exceptions;
+﻿using RinhaBackend.Api.Application.Contract;
+using RinhaBackend.Api.Application.Exceptions;
 using RinhaBackend.Api.Application.Interface;
-using RinhaBackend.Api.Application.Request;
 using RinhaBackend.Api.Application.Response;
 using RinhaBackend.Api.Application.Service.Api;
 
@@ -22,7 +22,7 @@ public class FallbackPaymentProcessor
             : Result<PaymentProcessorHealthResponse>.Ok(response.Content);
     }
 
-    public async Task<Result<PaymentProcessorResponse>> PaymentProcessorAsync(PaymentProcessorRequest request)
+    public async Task<Result<PaymentProcessorResponse>> PaymentProcessorAsync(PaymentProcessorContract request)
     {
         var response = await _paymentProcessorFallbackApi.PaymentProcessorAsync(request);
         return !response.IsSuccessful
