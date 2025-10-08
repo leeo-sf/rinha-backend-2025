@@ -1,44 +1,47 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RinhaBackend.Api.Application;
 using RinhaBackend.Api.Application.Config;
 using RinhaBackend.Api.Application.Contract;
+using RinhaBackend.Api.Application.Factory;
 using RinhaBackend.Api.Application.Interface;
+using RinhaBackend.Api.Application.Request;
+using RinhaBackend.Api.Application.Response;
+using RinhaBackend.Api.Domain.Entity;
 using RinhaBackend.Api.Domain.Enum;
+using RinhaBackend.Api.Domain.Interface;
 using System.Text;
 using System.Text.Json;
 
-namespace RinhaBackend.Api.Worker;
+namespace RinhaBackend.Api.Presentation.Worker;
 
 public class ProcessPaymentWorkerService : BackgroundService
 {
     private readonly ILogger<ProcessPaymentWorkerService> _logger;
-    private readonly IRabbitMQService _rabbitMQService;
     private const string CACHE_KEY_DEFAULT = "PaymentProcessorDefaultIsFailing";
     private const string CACHE_KEY_FALLBACK = "PaymentProcessorFallbackIsFailing";
     private readonly AppConfiguration _appConfiguration;
     private readonly IMemoryCache _memoryCache;
-    private readonly IPaymentProcessorDefaultApiService _paymentProcessorDefaultApiService;
-    private readonly IPaymentProcessorFallbackApiService _paymentProcessorFallbackApiService;
+    private readonly PaymentProcessorFactory _paymentProcessorFactory;
     private readonly IRabbitMQConnection _rabbitMqConnection;
     private IChannel? _channel;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
 
     public ProcessPaymentWorkerService(
         ILogger<ProcessPaymentWorkerService> logger,
-        IRabbitMQService rabbitMQService,
         AppConfiguration appConfiguration,
         IMemoryCache memoryCache,
-        IPaymentProcessorDefaultApiService paymentProcessorDefaultApiService,
-        IPaymentProcessorFallbackApiService paymentProcessorFallbackApiService,
-        IRabbitMQConnection rabbitMqConnection)
+        PaymentProcessorFactory paymentProcessorFactory,
+        IRabbitMQConnection rabbitMqConnection,
+        IServiceScopeFactory serviceScopeFactory)
     {
         _logger = logger;
-        _rabbitMQService = rabbitMQService;
         _appConfiguration = appConfiguration;
         _memoryCache = memoryCache;
-        _paymentProcessorDefaultApiService = paymentProcessorDefaultApiService;
-        _paymentProcessorFallbackApiService = paymentProcessorFallbackApiService;
+        _paymentProcessorFactory = paymentProcessorFactory;
         _rabbitMqConnection = rabbitMqConnection;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -85,40 +88,54 @@ public class ProcessPaymentWorkerService : BackgroundService
     private async Task ProcessPaymentAsync(PaymentContract paymentContract)
     {
         var requestedAt = DateTime.UtcNow;
-        var payment = new PaymentProcessedContract(paymentContract.CorrelationId, paymentContract.Amount, requestedAt, false, ProcessedByEnum.NONE);
+        var payment = new Payment(paymentContract.CorrelationId, paymentContract.Amount, requestedAt, PaymentProcessorEnum.NONE);
 
         if (_memoryCache.Get<bool>(CACHE_KEY_DEFAULT))
         {
-            var responseFallback = await _paymentProcessorFallbackApiService.PaymentProcessorAsync(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!));
+            var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
             if (responseFallback.IsSuccess)
             {
-                await PubPaymentToBeDischarged(payment with { ProcessedBy = ProcessedByEnum.FALLBACK, IsProcessed = true });
+                await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
                 return;
             }
         }
 
-        var responseDefault = await _paymentProcessorDefaultApiService.PaymentProcessorAsync(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!));
+        var responseDefault = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.DEFAULT);
         if (!responseDefault.IsSuccess)
         {
             if (!_memoryCache.Get<bool>(CACHE_KEY_FALLBACK))
             {
-                var responseFallback = await _paymentProcessorFallbackApiService.PaymentProcessorAsync(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!));
+                var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
                 if (responseFallback.IsSuccess)
                 {
-                    await PubPaymentToBeDischarged(payment with { ProcessedBy = ProcessedByEnum.FALLBACK, IsProcessed = true });
+                    await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
                     return;
                 }
             }
         }
         else
         {
-            await PubPaymentToBeDischarged(payment with { ProcessedBy = ProcessedByEnum.DEFAULT, IsProcessed = true });
+            await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.DEFAULT });
             return;
         }
 
         throw new ApplicationException("Unable to process payment on any service.");
     }
 
-    private async Task PubPaymentToBeDischarged(PaymentProcessedContract payment)
-        => await _rabbitMQService.PublisherAsync(_appConfiguration.RabbitMQ, payment, _appConfiguration.RabbitMQ.Queues.PaymentProcessedQueue);
+    private async Task<Result<PaymentProcessorResponse>> SendPaymentProcessing(
+        PaymentProcessorRequest request,
+        PaymentProcessorEnum paymentProcessorType)
+    {
+        var processor = _paymentProcessorFactory.CreateFactory(paymentProcessorType);
+        return await processor.PaymentProcessorAsync(request);
+    }
+
+    private async Task InsertProcessedPayment(Payment payment)
+    {
+        using (var scope = _serviceScopeFactory.CreateScope())
+        {
+            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
+            await paymentRepository.CreatePaymentAsync(payment, CancellationToken.None);
+        }
+    }
 }

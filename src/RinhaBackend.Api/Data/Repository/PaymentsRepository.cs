@@ -15,8 +15,7 @@ public class PaymentsRepository
     public async Task<List<Payment>> PaymentsProcessedAsync(DateTime? from, DateTime? to, CancellationToken cancellationToken)
         => await _appDbContext.Payments
             .AsNoTracking()
-            .Where(p => (from.HasValue && to.HasValue ? p.RequestedAt >= from && p.RequestedAt <= to : true)
-            && p.IsProcessed)
+            .Where(p => from.HasValue && to.HasValue ? p.RequestedAt >= from && p.RequestedAt <= to : true)
             .ToListAsync(cancellationToken);
 
     public async Task CreatePaymentAsync(Payment payment, CancellationToken cancellationToken)
