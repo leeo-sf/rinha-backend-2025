@@ -8,8 +8,8 @@ public static class PaymentsExtensions
 {
     public static PaymentsProcessedAtIntervalsContract BuildSummary(this List<Payment> payments)
     {
-        var paymentsProcessedByDefault = payments.Where(p => p.ProcessedBy == ProcessedByEnum.DEFAULT).ToList();
-        var paymentsProcessedByFallback = payments.Where(p => p.ProcessedBy == ProcessedByEnum.FALLBACK).ToList();
+        var paymentsProcessedByDefault = payments.Where(p => p.ProcessedBy == PaymentProcessorEnum.DEFAULT).ToList();
+        var paymentsProcessedByFallback = payments.Where(p => p.ProcessedBy == PaymentProcessorEnum.FALLBACK).ToList();
         return new(new(paymentsProcessedByDefault.AmountOfPayments(), paymentsProcessedByDefault.TotalAmountOfPayments()),
             new(paymentsProcessedByFallback.AmountOfPayments(), paymentsProcessedByFallback.TotalAmountOfPayments()));
     }

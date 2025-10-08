@@ -3,8 +3,8 @@ using RinhaBackend.Api.Application.Response;
 
 namespace RinhaBackend.Api.Application.Interface;
 
-public interface IPaymentProcessorFallbackApiService
+public interface IPaymentProcessor
 {
-    Task<Result<PaymentProcessorResponse>> PaymentProcessorAsync(PaymentProcessorRequest request);
     Task<Result<PaymentProcessorHealthResponse>> PaymentProcessorHealthCheck();
+    Task<Result<PaymentProcessorResponse>> PaymentProcessorAsync(PaymentProcessorRequest request);
 }

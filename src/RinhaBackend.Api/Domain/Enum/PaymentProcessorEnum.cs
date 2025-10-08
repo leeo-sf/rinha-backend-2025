@@ -1,6 +1,6 @@
 ﻿namespace RinhaBackend.Api.Domain.Enum;
 
-public enum ProcessedByEnum
+public enum PaymentProcessorEnum
 {
     NONE = 0,
     DEFAULT = 1,
