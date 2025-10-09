@@ -16,26 +16,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.375"
-          memory: 87M
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    hostname: rabbitmq
-    restart: always
-    ports:
-      - 5672:5672
-      - 15672:15672
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    networks:
-      - backend
+          cpus: "0.15"
+          memory: "48MB"
 
   rinha-db:
     image: postgres
-    hostname: database
+    container_name: rinha-database
+    hostname: rinha-database
     ports:
       - "5432:5432"
     environment:
@@ -50,8 +37,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.1875"
-          memory: 44M
+          cpus: "0.15"
+          memory: "86MB"
 
   backend1: &api-template
     image: leoof/rinha-backend
@@ -59,7 +46,6 @@ services:
     hostname: backend1
     restart: always
     depends_on:
-      - rabbitmq
       - rinha-db
     ports:
       - 3000:8080
@@ -77,8 +63,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.375"
-          memory: "87M"
+          cpus: "0.6"
+          memory: "108MB"
 
   backend2:
     <<: *api-template
