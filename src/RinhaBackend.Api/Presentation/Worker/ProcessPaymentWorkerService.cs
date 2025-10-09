@@ -18,7 +18,6 @@ public class ProcessPaymentWorkerService : BackgroundService
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IMemoryCache _memoryCache;
     private const string CACHE_KEY_DEFAULT = "PaymentProcessorDefaultIsFailing";
-    private const string CACHE_KEY_FALLBACK = "PaymentProcessorFallbackIsFailing";
     private const int MAX_RETRIES = 3;
 
     public ProcessPaymentWorkerService(
@@ -60,7 +59,7 @@ public class ProcessPaymentWorkerService : BackgroundService
 
             if (_memoryCache.Get<bool>(CACHE_KEY_DEFAULT))
             {
-                var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
+                var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
                 if (responseFallback.IsSuccess)
                 {
                     await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
@@ -68,20 +67,8 @@ public class ProcessPaymentWorkerService : BackgroundService
                 }
             }
 
-            var responseDefault = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.DEFAULT);
+            var responseDefault = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, payment.RequestedAt!), PaymentProcessorEnum.DEFAULT);
             if (!responseDefault.IsSuccess)
-            {
-                if (!_memoryCache.Get<bool>(CACHE_KEY_FALLBACK))
-                {
-                    var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, (DateTime)payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
-                    if (responseFallback.IsSuccess)
-                    {
-                        await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
-                        return;
-                    }
-                }
-            }
-            else
             {
                 await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.DEFAULT });
                 return;
