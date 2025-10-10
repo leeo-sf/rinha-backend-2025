@@ -28,10 +28,9 @@ public static class PaymentEndpoints
 
     private static async Task<IResult> ProcessingSummaryAsync(
         [AsParameters] SummaryOfProcessedPaymentsContract request,
-        [FromServices] IPaymentsRepository paymentsRepository,
-        CancellationToken cancellationToken)
+        [FromServices] IRedisService redis)
     {
-        var payments = await paymentsRepository.PaymentsProcessedAsync(request.From, request.To, cancellationToken);
+        var payments = await redis.GetPaymentsAsync(request.From, request.To);
         return Results.Ok(payments.BuildSummary());
     }
 }

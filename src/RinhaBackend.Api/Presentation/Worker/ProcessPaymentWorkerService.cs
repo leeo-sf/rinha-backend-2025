@@ -3,6 +3,7 @@ using RinhaBackend.Api.Application;
 using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Factory;
 using RinhaBackend.Api.Application.Response;
+using RinhaBackend.Api.Data.Repository;
 using RinhaBackend.Api.Domain.Entity;
 using RinhaBackend.Api.Domain.Enum;
 using RinhaBackend.Api.Domain.Interface;
@@ -93,8 +94,8 @@ public class ProcessPaymentWorkerService : BackgroundService
     {
         using (var scope = _serviceScopeFactory.CreateScope())
         {
-            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
-            await paymentRepository.CreatePaymentAsync(payment, CancellationToken.None);
+            var redisService = scope.ServiceProvider.GetRequiredService<IRedisService>();
+            await redisService.SetPaymentAsync(payment);
         }
     }
 }

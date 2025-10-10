@@ -3,8 +3,6 @@ using RinhaBackend.Api.Infra;
 var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
 
-builder.Services.AddDbContextConfiguration(configuration);
-
 builder.Services.AddSwaggerGen();
 
 builder.Services.ConfigureAppDependencies(configuration);

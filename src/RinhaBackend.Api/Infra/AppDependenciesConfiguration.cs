@@ -1,27 +1,20 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Refit;
+﻿using Refit;
 using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Factory;
 using RinhaBackend.Api.Application.Interface;
 using RinhaBackend.Api.Application.Service;
 using RinhaBackend.Api.Application.Service.Api;
-using RinhaBackend.Api.Data;
 using RinhaBackend.Api.Data.Repository;
 using RinhaBackend.Api.Domain.Interface;
 using RinhaBackend.Api.Presentation.Endpoints;
 using RinhaBackend.Api.Presentation.Worker;
+using StackExchange.Redis;
 using System.Threading.Channels;
 
 namespace RinhaBackend.Api.Infra;
 
 public static class AppDependenciesConfiguration
 {
-    public static void AddDbContextConfiguration(this IServiceCollection services, IConfiguration configuration)
-        => services.AddDbContext<AppDbContext>(opt =>
-        {
-            opt.UseNpgsql(configuration["ConnectionStrings:Database"]);
-        });
-
     public static void ConfigureAppDependencies(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -36,8 +29,12 @@ public static class AppDependenciesConfiguration
         services.AddSingleton<IPaymentProcessor, FallbackPaymentProcessor>();
         services.AddSingleton<PaymentProcessorFactory>();
         services.AddSingleton(Channel.CreateUnboundedPrioritized<PaymentContract>());
-        services.AddScoped<IPaymentsRepository, PaymentsRepository>();
         services.AddMemoryCache();
+        services.AddScoped<IRedisService, RedisService>();
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            return ConnectionMultiplexer.Connect(configuration["Service:Redis:HostAndPort"]!);
+        });
     }
 
     public static void ConfigureWorkerServices(this IServiceCollection services)
