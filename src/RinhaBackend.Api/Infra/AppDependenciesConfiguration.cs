@@ -16,6 +16,13 @@ namespace RinhaBackend.Api.Infra;
 
 public static class AppDependenciesConfiguration
 {
+    public static void ConfigKestrel(this WebApplicationBuilder webHost)
+        => webHost.WebHost.ConfigureKestrel(options =>
+        {
+            options.Limits.MaxConcurrentConnections = int.MaxValue;
+            options.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(30);
+        });
+
     public static void AddDbContextConfiguration(this IServiceCollection services, IConfiguration configuration)
         => services.AddDbContext<AppDbContext>(opt =>
         {

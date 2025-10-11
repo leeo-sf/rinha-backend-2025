@@ -13,6 +13,8 @@ builder.Services.ConfigureServices(configuration);
 
 builder.Services.ConfigureWorkerServices();
 
+builder.ConfigKestrel();
+
 var app = builder.Build();
 
 app.AddEndpoints();
