@@ -53,10 +53,6 @@ services:
       - ConnectionStrings__Database=Server=rinha-db;Port=5432;Database=rinha;UserId=postgres;Password=rinha-password-db!@
       - Service__PaymentProcessorDefault__BASE_URL=http://payment-processor-default:8080
       - Service__PaymentProcessorFallback__BASE_URL=http://payment-processor-fallback:8080
-      - Service__RabbitMQ__HostName=rabbitmq
-      - Service__RabbitMQ__Password=guest
-      - Service__RabbitMQ__UserName=guest
-      - Service__RabbitMQ__VirtualHost=/
     networks:
       - backend
       - payment-processor
@@ -76,10 +72,6 @@ services:
       - ConnectionStrings__Database=Server=rinha-db;Port=5432;Database=rinha;UserId=postgres;Password=rinha-password-db!@
       - Service__PaymentProcessorDefault__BASE_URL=http://payment-processor-default:8080
       - Service__PaymentProcessorFallback__BASE_URL=http://payment-processor-fallback:8080
-      - Service__RabbitMQ__Hostname=rabbitmq
-      - Service__RabbitMQ__Password=guest
-      - Service__RabbitMQ__Username=guest
-      - Service__RabbitMQ__VirtualHost=/
 
 volumes:
   postgres_data:
