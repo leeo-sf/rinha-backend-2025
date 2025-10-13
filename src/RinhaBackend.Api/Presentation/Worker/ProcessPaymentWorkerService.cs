@@ -2,32 +2,33 @@
 using RinhaBackend.Api.Application;
 using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Factory;
+using RinhaBackend.Api.Application.Interface;
 using RinhaBackend.Api.Application.Response;
 using RinhaBackend.Api.Domain.Entity;
 using RinhaBackend.Api.Domain.Enum;
 using RinhaBackend.Api.Domain.Interface;
-using System.Threading.Channels;
 
 namespace RinhaBackend.Api.Presentation.Worker;
 
 public class ProcessPaymentWorkerService : BackgroundService
 {
-    private readonly Channel<PaymentContract> _channel;
+    private readonly IPaymentQueueService _queue;
     private readonly ILogger<ProcessPaymentWorkerService> _logger;
     private readonly PaymentProcessorFactory _paymentProcessorFactory;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IMemoryCache _memoryCache;
     private const string CACHE_KEY_DEFAULT = "PaymentProcessorDefaultIsFailing";
     private const int MAX_RETRIES = 3;
+    private readonly int _parallelism = Environment.ProcessorCount;
 
     public ProcessPaymentWorkerService(
-        Channel<PaymentContract> channel,
+        IPaymentQueueService queue,
         ILogger<ProcessPaymentWorkerService> logger,
         PaymentProcessorFactory paymentProcessorFactory,
         IServiceScopeFactory serviceScopeFactory,
         IMemoryCache memoryCache)
     {
-        _channel = channel;
+        _queue = queue;
         _logger = logger;
         _paymentProcessorFactory = paymentProcessorFactory;
         _serviceScopeFactory = serviceScopeFactory;
@@ -36,7 +37,16 @@ public class ProcessPaymentWorkerService : BackgroundService
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var paymentContract in _channel.Reader.ReadAllAsync(stoppingToken))
+        var workers = Enumerable.Range(0, _parallelism)
+            .Select(_ => Task.Run(() => ProcessQueueAsync(stoppingToken), stoppingToken))
+            .ToArray();
+
+        await Task.WhenAll(workers);
+    }
+
+    private async Task ProcessQueueAsync(CancellationToken stoppingToken)
+    {
+        await foreach (var paymentContract in _queue.ReadAllASync(stoppingToken))
         {
             try
             {
@@ -77,7 +87,7 @@ public class ProcessPaymentWorkerService : BackgroundService
             if (attempt == MAX_RETRIES)
                 throw new ApplicationException("Unable to process payment on any service.");
 
-            await Task.Delay(100 * attempt, cancellationToken);
+            await Task.Delay(50 * attempt, cancellationToken);
         }
     }
 

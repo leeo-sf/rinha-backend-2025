@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Extensions;
+using RinhaBackend.Api.Application.Interface;
 using RinhaBackend.Api.Domain.Interface;
-using System.Threading.Channels;
 
 namespace RinhaBackend.Api.Presentation.Endpoints;
 
@@ -18,15 +18,15 @@ public static class PaymentEndpoints
         group.MapGet("payments-summary", ProcessingSummaryAsync)
             .Produces<PaymentSummaryContract>(StatusCodes.Status200OK);
     }
-    private static async Task<IResult> RequestsPaymentAsync(
+    private static async ValueTask<IResult> RequestsPaymentAsync(
         [FromBody] PaymentContract request,
-        [FromServices] Channel<PaymentContract> channel)
+        IPaymentQueueService queue)
     {
-        await channel.Writer.WriteAsync(request);
+        await queue.EnqueueAsync(request);
         return Results.Accepted();
     }
 
-    private static async Task<IResult> ProcessingSummaryAsync(
+    private static async ValueTask<IResult> ProcessingSummaryAsync(
         [AsParameters] SummaryOfProcessedPaymentsContract request,
         [FromServices] IPaymentsRepository paymentsRepository,
         CancellationToken cancellationToken)
