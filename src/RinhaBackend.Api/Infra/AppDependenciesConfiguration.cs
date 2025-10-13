@@ -44,6 +44,7 @@ public static class AppDependenciesConfiguration
         services.AddSingleton<PaymentProcessorFactory>();
         services.AddSingleton(Channel.CreateUnboundedPrioritized<PaymentContract>());
         services.AddScoped<IPaymentsRepository, PaymentsRepository>();
+        services.AddSingleton<IPaymentQueueService, PaymentQueueService>();
         services.AddMemoryCache();
     }
 
