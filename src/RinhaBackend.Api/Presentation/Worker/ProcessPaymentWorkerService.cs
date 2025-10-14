@@ -20,6 +20,7 @@ public class ProcessPaymentWorkerService : BackgroundService
     private const string CACHE_KEY_DEFAULT = "PaymentProcessorDefaultIsFailing";
     private const int MAX_RETRIES = 3;
     private readonly int _parallelism = Environment.ProcessorCount;
+    private bool _isDefaultFailing;
 
     public ProcessPaymentWorkerService(
         IPaymentQueueService queue,
@@ -33,25 +34,34 @@ public class ProcessPaymentWorkerService : BackgroundService
         _paymentProcessorFactory = paymentProcessorFactory;
         _serviceScopeFactory = serviceScopeFactory;
         _memoryCache = memoryCache;
+        SetDefaultProcessorAsFailing();
     }
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var workers = Enumerable.Range(0, _parallelism)
-            .Select(_ => Task.Run(() => ProcessQueueAsync(stoppingToken), stoppingToken))
+            .Select(_ => Task.Run(async () =>
+            {
+                await using var reader = _queue.ReadAllASync(stoppingToken).GetAsyncEnumerator(stoppingToken);
+                await ProcessQueueAsync(reader, stoppingToken);
+            }))
             .ToArray();
 
         await Task.WhenAll(workers);
     }
 
-    private async Task ProcessQueueAsync(CancellationToken stoppingToken)
+    private async Task ProcessQueueAsync(IAsyncEnumerator<PaymentContract> reader, CancellationToken stoppingToken)
     {
-        await foreach (var paymentContract in _queue.ReadAllASync(stoppingToken))
+        using var scope = _serviceScopeFactory.CreateScope();
+        var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
+
+        while (await reader.MoveNextAsync())
         {
+            var paymentContract = reader.Current;
             try
             {
                 _logger.LogInformation($"Starting payment processing {paymentContract.CorrelationId}");
-                await ProcessPaymentAsync(paymentContract, stoppingToken);
+                await ProcessPaymentAsync(paymentRepository, paymentContract, stoppingToken);
             }
             catch (Exception ex)
             {
@@ -60,27 +70,27 @@ public class ProcessPaymentWorkerService : BackgroundService
         }
     }
 
-    private async Task ProcessPaymentAsync(PaymentContract paymentContract, CancellationToken cancellationToken)
+    private async Task ProcessPaymentAsync(IPaymentsRepository repository, PaymentContract paymentContract, CancellationToken cancellationToken)
     {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++)
         {
             var requestedAt = DateTime.UtcNow;
             var payment = new Payment(paymentContract.CorrelationId, paymentContract.Amount, requestedAt, PaymentProcessorEnum.NONE);
 
-            if (_memoryCache.Get<bool>(CACHE_KEY_DEFAULT))
+            if (_isDefaultFailing)
             {
                 var responseFallback = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, payment.RequestedAt!), PaymentProcessorEnum.FALLBACK);
                 if (responseFallback.IsSuccess)
                 {
-                    await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK });
+                    await InsertProcessedPayment(repository, payment with { ProcessedBy = PaymentProcessorEnum.FALLBACK }, cancellationToken);
                     return;
                 }
             }
 
             var responseDefault = await SendPaymentProcessing(new(payment.CorrelationId, payment.Amount, payment.RequestedAt!), PaymentProcessorEnum.DEFAULT);
-            if (!responseDefault.IsSuccess)
+            if (responseDefault.IsSuccess)
             {
-                await InsertProcessedPayment(payment with { ProcessedBy = PaymentProcessorEnum.DEFAULT });
+                await InsertProcessedPayment(repository, payment with { ProcessedBy = PaymentProcessorEnum.DEFAULT }, cancellationToken);
                 return;
             }
 
@@ -99,12 +109,16 @@ public class ProcessPaymentWorkerService : BackgroundService
         return await processor.PaymentProcessorAsync(request);
     }
 
-    private async Task InsertProcessedPayment(Payment payment)
-    {
-        using (var scope = _serviceScopeFactory.CreateScope())
+    private async Task InsertProcessedPayment(IPaymentsRepository repository, Payment payment, CancellationToken cancellationToken)
+        => await repository.CreatePaymentAsync(payment, cancellationToken);
+
+    private void SetDefaultProcessorAsFailing()
+        => _ = Task.Run(async () =>
         {
-            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
-            await paymentRepository.CreatePaymentAsync(payment, CancellationToken.None);
-        }
-    }
+            while (true)
+            {
+                _isDefaultFailing = _memoryCache.Get<bool>(CACHE_KEY_DEFAULT);
+                await Task.Delay(5090);
+            }
+        });
 }
