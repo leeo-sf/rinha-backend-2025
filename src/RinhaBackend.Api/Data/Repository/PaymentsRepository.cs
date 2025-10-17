@@ -20,13 +20,7 @@ public class PaymentsRepository
 
     public async Task CreatePaymentAsync(Payment payment, CancellationToken cancellationToken)
     {
-        await _appDbContext.Payments.AddAsync(payment, cancellationToken);
-        await _appDbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task UpdatePaymentToProcessed(Payment payment, CancellationToken cancellationToken)
-    {
-        _appDbContext.Payments.Update(payment);
+        _appDbContext.Payments.Add(payment);
         await _appDbContext.SaveChangesAsync(cancellationToken);
     }
 }

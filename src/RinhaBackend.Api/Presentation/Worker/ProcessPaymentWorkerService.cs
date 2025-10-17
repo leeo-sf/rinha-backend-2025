@@ -15,7 +15,7 @@ public class ProcessPaymentWorkerService : BackgroundService
     private readonly ILogger<ProcessPaymentWorkerService> _logger;
     private readonly IPaymentProcessor _defaultProcessor;
     private readonly IPaymentProcessor _fallbackProcessor;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IMemoryCache _memoryCache;
     private const string CACHE_KEY_DEFAULT = "DefaultHealthCheck";
     private const string CACHE_KEY_FALLBACK = "FallbackHealthCheck";
@@ -27,16 +27,15 @@ public class ProcessPaymentWorkerService : BackgroundService
         IPaymentQueueService queue,
         ILogger<ProcessPaymentWorkerService> logger,
         PaymentProcessorFactory paymentProcessorFactory,
-        IServiceScopeFactory serviceScopeFactory,
+        IServiceProvider serviceProvider,
         IMemoryCache memoryCache)
     {
         _queue = queue;
         _logger = logger;
         _defaultProcessor = paymentProcessorFactory.CreateFactory(PaymentProcessorEnum.DEFAULT);
         _fallbackProcessor = paymentProcessorFactory.CreateFactory(PaymentProcessorEnum.FALLBACK);
-        _serviceScopeFactory = serviceScopeFactory;
+        _serviceProvider = serviceProvider;
         _memoryCache = memoryCache;
-        SetDefaultProcessorAsFailing();
     }
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -108,9 +107,11 @@ public class ProcessPaymentWorkerService : BackgroundService
 
     private async Task InsertProcessedPayment(Payment payment, CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
-        await paymentRepository.CreatePaymentAsync(payment, cancellationToken);
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
+            await paymentRepository.CreatePaymentAsync(payment, cancellationToken);
+        }
     }
 
     private void SetDefaultProcessorAsFailing()
