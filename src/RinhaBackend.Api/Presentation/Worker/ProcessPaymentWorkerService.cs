@@ -96,14 +96,22 @@ public class ProcessPaymentWorkerService : BackgroundService
             if (attempt == MAX_RETRIES)
                 throw new ApplicationException("Unable to process payment on any service.");
 
-            await Task.Delay(50 * attempt, cancellationToken);
+            await Task.Delay(100 * attempt, cancellationToken);
         }
     }
 
     private (IPaymentProcessor paymentProcessor, PaymentProcessorEnum paymentProcessorType) GetBetterServicePaymentProcessing()
-        => !_defaultHealthCheck.Failing && _defaultHealthCheck.MinResponseTime <= _fallbackHealthCheck.MinResponseTime
-            ? (_defaultProcessor, PaymentProcessorEnum.DEFAULT)
-            : (_fallbackProcessor, PaymentProcessorEnum.FALLBACK);
+    {
+        var diff = Math.Abs(_defaultHealthCheck.MinResponseTime - _fallbackHealthCheck.MinResponseTime);
+
+        if (!_defaultHealthCheck.Failing && diff <= 300)
+            return (_defaultProcessor, PaymentProcessorEnum.DEFAULT);
+        
+        if (_defaultHealthCheck.MinResponseTime > _fallbackHealthCheck.MinResponseTime)
+            return (_fallbackProcessor, PaymentProcessorEnum.FALLBACK);
+
+        return (_defaultProcessor, PaymentProcessorEnum.DEFAULT);
+    }
 
     private async Task InsertProcessedPayment(Payment payment, CancellationToken cancellationToken)
     {
