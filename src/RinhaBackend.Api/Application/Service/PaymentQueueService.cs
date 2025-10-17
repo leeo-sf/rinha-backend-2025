@@ -6,18 +6,23 @@ namespace RinhaBackend.Api.Application.Service;
 
 public class PaymentQueueService : IPaymentQueueService
 {
+    private const int MaxQueueSize = 8000;
     private readonly Channel<PaymentContract> _channel;
 
     public PaymentQueueService()
-        => _channel = Channel.CreateUnbounded<PaymentContract>(new UnboundedChannelOptions
+    {
+        var options = new BoundedChannelOptions(MaxQueueSize)
         {
-            SingleReader = true,
-            SingleWriter = false
-        });
+            SingleReader = false,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropNewest
+        };
+        _channel = Channel.CreateBounded<PaymentContract>(options);
+    }
 
-    public ValueTask EnqueueAsync(PaymentContract request, CancellationToken cancellationToken = default)
-        => _channel.Writer.WriteAsync(request, cancellationToken);
+    public async ValueTask EnqueueAsync(PaymentContract request, CancellationToken cancellationToken = default)
+        => await _channel.Writer.WriteAsync(request, cancellationToken);
 
-    public IAsyncEnumerable<PaymentContract> ReadAllASync(CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<PaymentContract> ReadAllAsync(CancellationToken cancellationToken = default)
         => _channel.Reader.ReadAllAsync(cancellationToken);
 }

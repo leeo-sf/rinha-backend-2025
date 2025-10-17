@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using RinhaBackend.Api.Application.Factory;
+using RinhaBackend.Api.Application.Interface;
 using RinhaBackend.Api.Domain.Enum;
 
 namespace RinhaBackend.Api.Presentation.Worker;
@@ -7,17 +8,19 @@ namespace RinhaBackend.Api.Presentation.Worker;
 public class PaymentHealthCheckWorkerService
     : BackgroundService
 {
-    private const string CACHE_KEY_DEFAULT = "PaymentProcessorDefaultIsFailing";
-    private const string CACHE_KEY_FALLBACK = "PaymentProcessorFallbackIsFailing";
+    private const string CACHE_KEY_DEFAULT = "DefaultHealthCheck";
+    private const string CACHE_KEY_FALLBACK = "FallbackHealthCheck";
     private const int TIME_IN_SECONDS_FOR_EACH_REQUEST = 5;
-    private readonly PaymentProcessorFactory _paymentProcessorFactory;
+    private readonly IPaymentProcessor _defaultProcessor;
+    private readonly IPaymentProcessor _fallbackProcessor;
     private readonly IMemoryCache _memoryCache;
 
     public PaymentHealthCheckWorkerService(
         PaymentProcessorFactory paymentProcessorFactory,
         IMemoryCache memoryCache)
     {
-        _paymentProcessorFactory = paymentProcessorFactory;
+        _defaultProcessor = paymentProcessorFactory.CreateFactory(PaymentProcessorEnum.DEFAULT);
+        _fallbackProcessor = paymentProcessorFactory.CreateFactory(PaymentProcessorEnum.FALLBACK);
         _memoryCache = memoryCache;
     }
 
@@ -25,18 +28,18 @@ public class PaymentHealthCheckWorkerService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await PaymentsHealthCheck(PaymentProcessorEnum.DEFAULT);
-            await PaymentsHealthCheck(PaymentProcessorEnum.FALLBACK);
+            await Task.WhenAll(
+                PaymentsHealthCheck(_defaultProcessor, PaymentProcessorEnum.DEFAULT),
+                PaymentsHealthCheck(_fallbackProcessor, PaymentProcessorEnum.FALLBACK));
             await Task.Delay(TimeSpan.FromSeconds(TIME_IN_SECONDS_FOR_EACH_REQUEST), stoppingToken);
         }
     }
 
-    private async Task PaymentsHealthCheck(PaymentProcessorEnum paymentProcessorType)
+    private async Task PaymentsHealthCheck(IPaymentProcessor processor, PaymentProcessorEnum paymentProcessorType)
     {
-        var processor = _paymentProcessorFactory.CreateFactory(paymentProcessorType);
         var response = await processor.PaymentProcessorHealthCheck();
         _memoryCache.Set(
             paymentProcessorType == PaymentProcessorEnum.DEFAULT ? CACHE_KEY_DEFAULT : CACHE_KEY_FALLBACK,
-            !response.IsSuccess ? true : response.Value?.Failing);
+            response.Value);
     }
 }

@@ -16,8 +16,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.15"
-          memory: "40MB"
+          cpus: "0.2"
+          memory: "20MB"
 
   rinha-db:
     image: postgres
@@ -37,8 +37,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.3"
-          memory: "80MB"
+          cpus: "0.1"
+          memory: "40MB"
 
   backend1: &api-template
     image: leoof/rinha-backend
@@ -59,8 +59,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.525"
-          memory: "115MB"
+          cpus: "0.6"
+          memory: "144MB"
 
   backend2:
     <<: *api-template
