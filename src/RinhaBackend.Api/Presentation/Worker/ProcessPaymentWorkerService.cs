@@ -15,19 +15,17 @@ public class ProcessPaymentWorkerService : BackgroundService
     private readonly ILogger<ProcessPaymentWorkerService> _logger;
     private readonly IPaymentProcessor _defaultProcessor;
     private readonly IPaymentProcessor _fallbackProcessor;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IServiceScopeFactory _serviceProvider;
     private readonly IMemoryCache _memoryCache;
     private const string CACHE_KEY_DEFAULT = "DefaultHealthCheck";
     private const string CACHE_KEY_FALLBACK = "FallbackHealthCheck";
     private const int MAX_RETRIES = 3;
-    private PaymentProcessorHealthResponse _defaultHealthCheck = default!;
-    private PaymentProcessorHealthResponse _fallbackHealthCheck = default!;
 
     public ProcessPaymentWorkerService(
         IPaymentQueueService queue,
         ILogger<ProcessPaymentWorkerService> logger,
         PaymentProcessorFactory paymentProcessorFactory,
-        IServiceProvider serviceProvider,
+        IServiceScopeFactory serviceProvider,
         IMemoryCache memoryCache)
     {
         _queue = queue;
@@ -40,10 +38,10 @@ public class ProcessPaymentWorkerService : BackgroundService
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var workerCount = 8;
+        var workerCount = 10;
         var workers = new List<Task>();
         for (int i = 0; i < workerCount; i++)
-            workers.Add(Task.Run(async () => await ProcessQueueAsync(stoppingToken), stoppingToken));
+            workers.Add(ProcessQueueAsync(stoppingToken));
 
         await Task.WhenAll(workers);
     }
@@ -66,7 +64,6 @@ public class ProcessPaymentWorkerService : BackgroundService
 
     private async Task ProcessPaymentAsync(PaymentContract paymentContract, CancellationToken cancellationToken)
     {
-        SetDefaultProcessorAsFailing();
         var payment = new Payment(paymentContract.CorrelationId, paymentContract.Amount, DateTime.UtcNow, PaymentProcessorEnum.NONE);
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++)
         {
@@ -77,6 +74,7 @@ public class ProcessPaymentWorkerService : BackgroundService
             var response = await processor.PaymentProcessorAsync(paymentProcessorRequest);
             if (response.IsSuccess)
             {
+                _logger.LogInformation($"Pagamento processado pelo ${bestProcessor}. Tentativa ${attempt}");
                 await InsertProcessedPayment(payment with { RequestedAt = requestedAt, ProcessedBy = bestProcessor }, cancellationToken);
                 return;
             }
@@ -88,6 +86,7 @@ public class ProcessPaymentWorkerService : BackgroundService
                 var secondServiceResponse = await processor.PaymentProcessorAsync(paymentProcessorRequest);
                 if (secondServiceResponse.IsSuccess)
                 {
+                    _logger.LogWarning($"Pagamento processado no else pelo ${bestProcessor}. Tentativa ${attempt}");
                     await InsertProcessedPayment(payment with { RequestedAt = requestedAt, ProcessedBy = bestProcessor }, cancellationToken);
                     return;
                 }
@@ -102,12 +101,14 @@ public class ProcessPaymentWorkerService : BackgroundService
 
     private (IPaymentProcessor paymentProcessor, PaymentProcessorEnum paymentProcessorType) GetBetterServicePaymentProcessing()
     {
-        var diff = Math.Abs(_defaultHealthCheck.MinResponseTime - _fallbackHealthCheck.MinResponseTime);
+        var defaultHealthCheck = _memoryCache.Get<PaymentProcessorHealthResponse>(CACHE_KEY_DEFAULT)!;
+        var fallbackHealthCheck = _memoryCache.Get<PaymentProcessorHealthResponse>(CACHE_KEY_FALLBACK)!;
+        var diff = Math.Abs(defaultHealthCheck.MinResponseTime - fallbackHealthCheck.MinResponseTime);
 
-        if (!_defaultHealthCheck.Failing && diff <= 300)
+        if (!defaultHealthCheck.Failing && diff <= 300)
             return (_defaultProcessor, PaymentProcessorEnum.DEFAULT);
         
-        if (_defaultHealthCheck.MinResponseTime > _fallbackHealthCheck.MinResponseTime)
+        if (defaultHealthCheck.MinResponseTime > fallbackHealthCheck.MinResponseTime)
             return (_fallbackProcessor, PaymentProcessorEnum.FALLBACK);
 
         return (_defaultProcessor, PaymentProcessorEnum.DEFAULT);
@@ -115,16 +116,8 @@ public class ProcessPaymentWorkerService : BackgroundService
 
     private async Task InsertProcessedPayment(Payment payment, CancellationToken cancellationToken)
     {
-        using (var scope = _serviceProvider.CreateScope())
-        {
-            var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
-            await paymentRepository.CreatePaymentAsync(payment, cancellationToken);
-        }
-    }
-
-    private void SetDefaultProcessorAsFailing()
-    {
-        _defaultHealthCheck = _memoryCache.Get<PaymentProcessorHealthResponse>(CACHE_KEY_DEFAULT)!;
-        _fallbackHealthCheck = _memoryCache.Get<PaymentProcessorHealthResponse>(CACHE_KEY_FALLBACK)!;
+        using var scope = _serviceProvider.CreateScope();
+        var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentsRepository>();
+        await paymentRepository.CreatePaymentAsync(payment, cancellationToken);
     }
 }

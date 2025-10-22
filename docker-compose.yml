@@ -20,7 +20,7 @@ services:
           memory: "20MB"
 
   rinha-db:
-    image: postgres
+    image: postgres:17-alpine
     container_name: rinha-database
     hostname: rinha-database
     ports:

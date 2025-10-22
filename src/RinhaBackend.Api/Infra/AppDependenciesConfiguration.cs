@@ -24,7 +24,7 @@ public static class AppDependenciesConfiguration
         });
 
     public static void AddDbContextConfiguration(this IServiceCollection services, IConfiguration configuration)
-        => services.AddDbContext<AppDbContext>(opt =>
+        => services.AddDbContextPool<AppDbContext>(opt =>
         {
             opt.UseNpgsql(configuration["ConnectionStrings:Database"]);
         });
