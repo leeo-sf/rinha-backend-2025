@@ -12,7 +12,7 @@ O objetivo é processar TODOS os pagamentos recebidos para não afetar o lucro d
 
 Resumo da arquitetura do sistema
 
-![System design](/doc/arch-drawing.png)
+![System design](/doc/architecture.png)
 
 ## Como rodar o projeto
 
