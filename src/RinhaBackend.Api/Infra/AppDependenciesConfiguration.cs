@@ -7,6 +7,7 @@ using RinhaBackend.Api.Application.Service;
 using RinhaBackend.Api.Application.Service.Api;
 using RinhaBackend.Api.Data;
 using RinhaBackend.Api.Data.Repository;
+using RinhaBackend.Api.Domain.Entity;
 using RinhaBackend.Api.Domain.Interface;
 using RinhaBackend.Api.Presentation.Endpoints;
 using RinhaBackend.Api.Presentation.Worker;
@@ -44,7 +45,8 @@ public static class AppDependenciesConfiguration
         services.AddSingleton<PaymentProcessorFactory>();
         services.AddSingleton(Channel.CreateUnboundedPrioritized<PaymentContract>());
         services.AddScoped<IPaymentsRepository, PaymentsRepository>();
-        services.AddSingleton<IPaymentQueueService, PaymentQueueService>();
+        services.AddSingleton<IChannelQueueService<PaymentContract>, ChannelQueueService<PaymentContract>>();
+        services.AddSingleton<IChannelQueueService<Payment>, ChannelQueueService<Payment>>();
         services.AddMemoryCache();
     }
 
@@ -52,6 +54,7 @@ public static class AppDependenciesConfiguration
     {
         services.AddHostedService<ProcessPaymentWorkerService>();
         services.AddHostedService<PaymentHealthCheckWorkerService>();
+        services.AddHostedService<PaymentPersistenceWorkerService>();
     }
 
     public static IEndpointRouteBuilder AddEndpoints(this IEndpointRouteBuilder app)

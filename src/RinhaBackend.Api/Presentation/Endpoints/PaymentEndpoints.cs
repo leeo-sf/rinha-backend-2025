@@ -20,7 +20,7 @@ public static class PaymentEndpoints
     }
     private static async ValueTask<IResult> RequestsPaymentAsync(
         [FromBody] PaymentContract request,
-        IPaymentQueueService queue)
+        IChannelQueueService<PaymentContract> queue)
     {
         await queue.EnqueueAsync(request);
         return Results.Accepted();

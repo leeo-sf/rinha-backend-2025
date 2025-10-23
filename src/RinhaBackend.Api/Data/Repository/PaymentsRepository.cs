@@ -18,9 +18,9 @@ public class PaymentsRepository
             .Where(p => from.HasValue && to.HasValue ? p.RequestedAt >= from && p.RequestedAt <= to : true)
             .ToListAsync(cancellationToken);
 
-    public async Task CreatePaymentAsync(Payment payment, CancellationToken cancellationToken)
+    public async Task CreatePaymentAsync(List<Payment> payment, CancellationToken cancellationToken)
     {
-        _appDbContext.Payments.Add(payment);
+        await _appDbContext.Payments.AddRangeAsync(payment);
         await _appDbContext.SaveChangesAsync(cancellationToken);
     }
 }
