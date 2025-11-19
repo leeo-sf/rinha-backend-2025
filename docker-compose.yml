@@ -19,26 +19,19 @@ services:
           cpus: "0.2"
           memory: "20MB"
 
-  rinha-db:
-    image: postgres:17-alpine
-    container_name: rinha-database
-    hostname: rinha-database
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_PASSWORD=rinha-password-db!@
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=rinha
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - backend
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    hostname: redis
+    platform: linux/amd64
     deploy:
       resources:
         limits:
           cpus: "0.1"
           memory: "40MB"
+    restart: unless-stopped
+    networks:
+      - backend
 
   backend1: &api-template
     image: leoof/rinha-backend
@@ -46,11 +39,10 @@ services:
     hostname: backend1
     restart: always
     depends_on:
-      - rinha-db
+      - redis
     ports:
       - 3000:8080
     environment:
-      - ConnectionStrings__Database=Server=rinha-db;Port=5432;Database=rinha;UserId=postgres;Password=rinha-password-db!@
       - Service__PaymentProcessorDefault__BASE_URL=http://payment-processor-default:8080
       - Service__PaymentProcessorFallback__BASE_URL=http://payment-processor-fallback:8080
     networks:
@@ -69,7 +61,6 @@ services:
     ports:
       - '3001:8080'
     environment:
-      - ConnectionStrings__Database=Server=rinha-db;Port=5432;Database=rinha;UserId=postgres;Password=rinha-password-db!@
       - Service__PaymentProcessorDefault__BASE_URL=http://payment-processor-default:8080
       - Service__PaymentProcessorFallback__BASE_URL=http://payment-processor-fallback:8080
 
