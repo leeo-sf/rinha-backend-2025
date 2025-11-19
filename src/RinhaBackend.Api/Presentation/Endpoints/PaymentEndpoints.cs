@@ -2,7 +2,6 @@
 using RinhaBackend.Api.Application.Contract;
 using RinhaBackend.Api.Application.Extensions;
 using RinhaBackend.Api.Application.Interface;
-using RinhaBackend.Api.Domain.Interface;
 
 namespace RinhaBackend.Api.Presentation.Endpoints;
 
@@ -28,10 +27,10 @@ public static class PaymentEndpoints
 
     private static async ValueTask<IResult> ProcessingSummaryAsync(
         [AsParameters] SummaryOfProcessedPaymentsContract request,
-        [FromServices] IPaymentsRepository paymentsRepository,
+        [FromServices] IRedisService cache,
         CancellationToken cancellationToken)
     {
-        var payments = await paymentsRepository.PaymentsProcessedAsync(request.From, request.To, cancellationToken);
-        return Results.Ok(payments.BuildSummary());
+        var payments = await cache.GetPaymentsAsync(request.From, request.To);
+        return Results.Ok(payments!.BuildSummary());
     }
 }

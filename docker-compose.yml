@@ -73,9 +73,6 @@ services:
       - Service__PaymentProcessorDefault__BASE_URL=http://payment-processor-default:8080
       - Service__PaymentProcessorFallback__BASE_URL=http://payment-processor-fallback:8080
 
-volumes:
-  postgres_data:
-
 networks:
   backend:
     driver: bridge
