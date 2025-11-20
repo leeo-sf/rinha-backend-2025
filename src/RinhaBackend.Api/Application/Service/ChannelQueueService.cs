@@ -12,7 +12,7 @@ public class ChannelQueueService<T> : IChannelQueueService<T>
     {
         var options = new BoundedChannelOptions(MaxQueueSize)
         {
-            SingleReader = true,
+            SingleReader = false,
             SingleWriter = false,
             FullMode = BoundedChannelFullMode.DropNewest
         };

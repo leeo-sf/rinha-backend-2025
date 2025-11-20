@@ -8,15 +8,24 @@ public static class PaymentsExtensions
 {
     public static PaymentSummaryContract BuildSummary(this List<Payment> payments)
     {
-        var paymentsProcessedByDefault = payments.Where(p => p.ProcessedBy == PaymentProcessorEnum.DEFAULT).ToList();
-        var paymentsProcessedByFallback = payments.Where(p => p.ProcessedBy == PaymentProcessorEnum.FALLBACK).ToList();
-        return new(new(paymentsProcessedByDefault.AmountOfPayments(), paymentsProcessedByDefault.TotalAmountOfPayments()),
-            new(paymentsProcessedByFallback.AmountOfPayments(), paymentsProcessedByFallback.TotalAmountOfPayments()));
+        int defaultCount = 0, fallbackCount = 0;
+        decimal defaultTotal = 0m, fallbackTotal = 0m;
+        foreach (var payment in payments)
+        {
+            if (payment.ProcessedBy == PaymentProcessorEnum.DEFAULT)
+            {
+                defaultCount++;
+                defaultTotal += payment.Amount;
+            }
+            else
+            {
+                fallbackCount++;
+                fallbackTotal += payment.Amount;
+            }
+        }
+        return new (
+            new ProcessingSummaryContract(defaultCount, defaultTotal),
+            new ProcessingSummaryContract(fallbackCount, fallbackTotal)
+        );
     }
-
-    public static decimal TotalAmountOfPayments(this List<Payment> payments) =>
-        payments.Sum(p => p.Amount);
-
-    public static int AmountOfPayments(this List<Payment> payments) =>
-        payments.Count;
 }

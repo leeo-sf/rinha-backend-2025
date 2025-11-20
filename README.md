@@ -40,11 +40,11 @@ docker compose up -d
 docker compose up -d
 ```
 
-OBS: É possível executar esta aplicação backend sem o docker, mas ainda é necessário subir os serviços do payment processor e subir um container postgres para a aplicação interagir com algum banco de dados.
+OBS: É possível executar esta aplicação backend sem o docker, mas ainda é necessário subir os serviços do payment processor e subir um container redis para a aplicação interagir com o banco de dados.
 
 ## 💻​ Tecnologias Utilizadas
 - .NET 9
-- PostgreSQL
+- Redis
 - Docker & Docker compose
 - Nginx
 
