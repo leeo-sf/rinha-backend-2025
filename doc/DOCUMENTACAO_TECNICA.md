@@ -67,7 +67,7 @@ A documentação esta dividida nas seguintes camadas:
 
 ## 💾 Banco de Dados
 
-### PostgreSQL
-- Open-source, robusto e altamente confiável.
-- Suporte avançado a transações e queries complexas.
-- Integração nativa com Entity Framework Core.
+### Redis
+- Performance extremamente alta (baixa latência).
+- Redução de carga no banco de dados, aumentando estabilidade e escalabilidade.
+- Suporte a múltiplos recursos além de cache
