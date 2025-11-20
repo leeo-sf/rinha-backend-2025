@@ -11,7 +11,6 @@ namespace RinhaBackend.Api.Presentation.Worker;
 public class ProcessPaymentWorkerService : BackgroundService
 {
     private readonly IChannelQueueService<PaymentContract> _queueToProcess;
-    private readonly IChannelQueueService<Payment> _queueProcessed;
     private readonly ILogger<ProcessPaymentWorkerService> _logger;
     private readonly IPaymentProcessor _defaultProcessor;
     private readonly IPaymentProcessor _fallbackProcessor;
@@ -19,20 +18,21 @@ public class ProcessPaymentWorkerService : BackgroundService
     private const string CACHE_KEY_DEFAULT = "DefaultHealthCheck";
     private const string CACHE_KEY_FALLBACK = "FallbackHealthCheck";
     private const int MAX_RETRIES = 3;
+    private readonly IRedisService _cache;
 
     public ProcessPaymentWorkerService(
         IChannelQueueService<PaymentContract> queueToProcess,
-        IChannelQueueService<Payment> queueProcessed,
         ILogger<ProcessPaymentWorkerService> logger,
         PaymentProcessorFactory paymentProcessorFactory,
-        IMemoryCache memoryCache)
+        IMemoryCache memoryCache,
+        IRedisService cache)
     {
         _queueToProcess = queueToProcess;
-        _queueProcessed = queueProcessed;
         _logger = logger;
         _defaultProcessor = paymentProcessorFactory.CreateFactory(PaymentProcessorEnum.DEFAULT);
         _fallbackProcessor = paymentProcessorFactory.CreateFactory(PaymentProcessorEnum.FALLBACK);
         _memoryCache = memoryCache;
+        _cache = cache;
     }
 
     protected async override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -73,7 +73,7 @@ public class ProcessPaymentWorkerService : BackgroundService
             var response = await processor.PaymentProcessorAsync(paymentProcessorRequest);
             if (response.IsSuccess)
             {
-                await _queueProcessed.EnqueueAsync(payment with { RequestedAt = requestedAt, ProcessedBy = bestProcessor }, cancellationToken);
+                await SavePaymentAsync(payment with { RequestedAt = requestedAt, ProcessedBy = bestProcessor }, cancellationToken);
                 return;
             }
             else
@@ -84,7 +84,7 @@ public class ProcessPaymentWorkerService : BackgroundService
                 var secondServiceResponse = await processor.PaymentProcessorAsync(paymentProcessorRequest);
                 if (secondServiceResponse.IsSuccess)
                 {
-                    await _queueProcessed.EnqueueAsync(payment with { RequestedAt = requestedAt, ProcessedBy = bestProcessor }, cancellationToken);
+                    await SavePaymentAsync(payment with { RequestedAt = requestedAt, ProcessedBy = bestProcessor }, cancellationToken);
                     return;
                 }
             }
@@ -109,5 +109,19 @@ public class ProcessPaymentWorkerService : BackgroundService
             return (_fallbackProcessor, PaymentProcessorEnum.FALLBACK);
 
         return (_defaultProcessor, PaymentProcessorEnum.DEFAULT);
+    }
+
+    private async Task SavePaymentAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation($"Saving payment {payment.CorrelationId}");
+            await _cache.AddPaymentAsync(payment);
+        }
+        catch (Exception)
+        {
+            _logger.LogError($"Error saving payment {payment.CorrelationId}");
+            throw new Exception();
+        }
     }
 }
