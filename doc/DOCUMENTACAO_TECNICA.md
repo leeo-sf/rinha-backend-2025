@@ -44,11 +44,6 @@ A documentação esta dividida nas seguintes camadas:
 - Criação novos endpoints com pooucas linhas, sem necessidade de Controllers, atributos ou roteamento complexo.
 - Ideal para APIs pequenas e específica, focadas em uma única responsabilidade.
 
-### Entity Framework Core
-- Facilita a persistência de dados sem a necessidade de escrever SQL manual.
-- Permite o uso de migrations para controle de versões do banco.
-- Integra-se nativamente ao .NET.
-
 ### Channels .NET
 - Proporciona um modelo de processamento assíncrono sem bloqueio (async/await).
 - Substitui implementações manuais de filas com `ConcurrentQueue` e `SemaphoreSlim`.
