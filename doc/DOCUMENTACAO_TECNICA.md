@@ -7,24 +7,22 @@ A intenção é fornecer uma visão técnica e clara sobre as decisões de arqui
 
 A documentação esta dividida nas seguintes camadas:
 
-- [Ir para Infraestrutura](#-infraestrutura)
-- [Ir para Padrão de Arquitetura e Design](#-padrão-de-arquitetura-e-design)
-- [Ir para Backend](#️-backend)
-- [Ir para Banco de Dados](#-banco-de-dados)
+- [Infraestrutura](#-infraestrutura)
+- [Padrão de Arquitetura e Design Patterns](#-padrão-de-arquitetura-e-design)
+- [Backend](#️-backend)
+- [Banco de Dados](#-banco-de-dados)
 
 ## 🌐 Infraestrutura
-
-### Nginx
-- Utilizado como proxy reverso e balanceador de carga conforme regra do desafio.
-- Leve e performático.
-- Permite cache, compressão e roteamento eficiente de requisições.
-- Facilita a integração com containers Docker.
 
 ### Docker & Docker Compose
 - Facilita a escalabilidade e o deploy da aplicação.
 - Permite isolar serviços (API, banco, Nginx, etc.) em containers independentes.
 
-## 🧱 Padrão de Arquitetura e Design
+### Nginx
+- Utilizado como proxy reverso e balanceador de carga conforme regra do desafio.
+- Leve e performático compressão e roteamento eficiente de requisições.
+
+## 🧱 Padrão de Arquitetura e Design Patterns
 
 ### Clean Architecture
 - Facilita a testabilidade e a substituição de implementações sem afetar outras partes do sistema.
@@ -41,11 +39,15 @@ A documentação esta dividida nas seguintes camadas:
 ### Minimal API's
 - Menor overhead: menos abstrações e menos uso de reflection.
 - Código mais leve, menos dependências do pipeline MVC tradicional.
-- Criação novos endpoints com pooucas linhas, sem necessidade de Controllers, atributos ou roteamento complexo.
-- Ideal para APIs pequenas e específica, focadas em uma única responsabilidade.
+- Criação de novos endpoints com poucas linhas, sem necessidade de Controllers, atributos ou roteamento complexo.
+
+### Worker (Background Service)
+- Desacoplamento entre API e o processamento (Evita timeouts e lentidão causados pelos serviços externos).
+- Melhor performance e escalabilidade.
+- Processamento assíncrono mais eficiente.
 
 ### Channels .NET
-- Proporciona um modelo de processamento assíncrono sem bloqueio (async/await).
+- Proporciona um modelo de processamento assíncrono sem bloqueio.
 - Substitui implementações manuais de filas com `ConcurrentQueue` e `SemaphoreSlim`.
 - Lida com alta concorrência e throughput.
 
