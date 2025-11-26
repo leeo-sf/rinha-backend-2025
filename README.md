@@ -8,9 +8,7 @@ O objetivo é processar TODOS os pagamentos recebidos para não afetar o lucro d
 
 [Instruções e detalhes do desafio](https://github.com/zanfranceschi/rinha-de-backend-2025/blob/main/INSTRUCOES.md)
 
-## 📝 Arquitetura do projeto
-
-Resumo da arquitetura do projeto
+## 📝 Arquitetura da solução
 
 ![Desenho de arquitetura](/doc/architecture-drawing.png)
 
